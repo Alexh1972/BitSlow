@@ -1,5 +1,3 @@
-import jwt from "jsonwebtoken";
-
 export async function hashPassword(password: string) {
     const encoder = new TextEncoder();
     const data = encoder.encode(password);

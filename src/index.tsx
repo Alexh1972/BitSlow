@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { seedDatabase } from "./seed";
 import index from "./index.html";
 import { computeBitSlow } from "./bitslow";
+import {generateToken, verifyToken} from "@/UtilBack";
 
 // Initialize the database
 const db = new Database(":memory:");
@@ -103,10 +104,10 @@ const server = serve({
 					SELECT * FROM users WHERE client_id = ?;
 				`)
 				const user = userQuery.get(client['id']);
-				console.log(user['password'], requestBody['password']);
 				if (requestBody['password'] != null && user != null && user['password'] != null) {
 					if (requestBody['password'] == user['password']) {
-						return Response.json({message: "Login successful", data: {"status": 1} }, { status: 200 });
+						const token = generateToken({id: client['id']})
+						return Response.json({message: "Login successful", data: {"status": 1, "token": token} }, { status: 200 });
 					}
 				}
 			}

@@ -1,6 +1,7 @@
 import "./index.css";
 import {useEffect, useState} from "react";
-import {hashPassword} from "@/Util";
+import {hashPassword} from "@/UtilFront";
+import * as React from "react";
 
 // Define the Transaction interface based on the API response
 interface Transaction {
@@ -52,6 +53,80 @@ export function App() {
 	const [loadingTime, setLoadingTime] = useState(0);
 	const [isSignupOpen, setIsSignupOpen] = useState(false);
 	const [isLoginOpen, setIsLoginOpen] = useState(false);
+	const [dateRange, setDateRange] = useState({start: new Date("01/01/1700, 00:00:00 AM"), end: new Date()});
+	const [valueRange, setValueRange] = useState({start: -1, end: -1});
+	const [page, setPage] = useState({ start: 0, end: 50, size: 50, currentPage: 1 });
+	const [name, setName] = useState({buyer: "", seller: ""});
+	const filteredTransactions = transactions
+		.filter((transaction) => {
+			if (dateRange.start >= dateRange.end) {
+				return true;
+			}
+
+			const date = new Date(transaction.transaction_date);
+			return date >= dateRange.start && date <= dateRange.end;
+		})
+		.filter((transaction) => {
+			return (transaction.amount >= valueRange.start || valueRange.start == -1) && (transaction.amount <= valueRange.end || valueRange.end == -1);
+		})
+		.filter((transaction) => {
+			if (name.buyer == "" && name.seller == "") {
+				return true;
+			}
+
+			return (name.buyer == "" || transaction.buyer_name.toLowerCase().includes(name.buyer)) &&
+				(name.seller == "" || (transaction.seller_name != null && transaction.seller_name.toLowerCase().includes(name.seller)));
+		});
+	const pagedTransactions = filteredTransactions.slice(page.start, page.end);
+
+	const handlePageChange = (pageNumber: number) => {
+		setPage({start: pageNumber * page.size, end: (pageNumber + 1) * page.size, size: page.size, currentPage: pageNumber});
+	};
+
+	const handleBuyerNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		setName({buyer: event.target.value.toLowerCase(), seller: name.seller});
+		handlePageChange(0);
+	}
+
+	const handleSellerNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		setName({buyer: name.buyer, seller: event.target.value.toLowerCase()});
+		handlePageChange(0);
+	}
+
+	const handleStartPriceChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		if (event.target.value == "") {
+			setValueRange({start: -1, end: valueRange.end});
+		} else {
+			setValueRange({start: parseFloat(event.target.value), end: valueRange.end});
+		}
+		handlePageChange(0);
+	}
+
+	const handleEndPriceChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		if (event.target.value == "") {
+			setValueRange({start: valueRange.start, end: -1});
+		} else {
+			setValueRange({start: valueRange.start, end: parseFloat(event.target.value)});
+		}
+		handlePageChange(0);
+	}
+
+	const handlePageSizeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+		const selectedPageSize = parseInt(event.target.value);
+		setPage({start: 0, end: selectedPageSize, size: selectedPageSize, currentPage: 1});
+	};
+
+	const handleStartDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const date = new Date(event.target.value);
+		setDateRange({start: date, end: dateRange.end});
+		handlePageChange(0);
+	}
+
+	const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const date = new Date(event.target.value);
+		setDateRange({start: dateRange.start, end: date});
+		handlePageChange(0);
+	}
 
 	useEffect(() => {
 		let timerId: number | undefined;
@@ -108,9 +183,17 @@ export function App() {
 	return (
 		<div className="max-w-7xl mx-auto p-4">
 			<div>
-				<button className="login-btn" onClick={() => setIsLoginOpen(true)}>
-					Login
-				</button>
+				<div className="buttons-container">
+					<button className="login-btn" onClick={() => setIsLoginOpen(true)}>
+						Login
+					</button>
+					<button
+						className="signup-btn"
+						onClick={() => setIsSignupOpen(true)}
+					>
+						Signup
+					</button>
+				</div>
 
 				<div className={`login-panel ${isLoginOpen ? "active" : ""}`}>
 					<button className="login-close-btn" onClick={() => setIsLoginOpen(false)}>
@@ -153,7 +236,8 @@ export function App() {
 							if (json.data.status == 0) {
 								document.getElementById("login-loading").innerHTML = json.data.error;
 							} else {
-
+								setCookie("token", json.data.token);
+								window.location.reload();
 							}
 							document.getElementById("login-loading").style.display = "none";
 						}
@@ -224,134 +308,35 @@ export function App() {
 					<div className="w-7 h-7 mb-4 border-t-4 border-b-4 border-blue-500 rounded-full animate-spin" id="signup-loading" style={{ display: "none" }}></div>
 
 				</div>
-
-				<style>{`
-                body {
-                    font-family: Arial, sans-serif;
-                }
-                .login-btn {
-                    position: fixed;
-                    top: 20px;
-                    right: 100px;
-                    padding: 10px 15px;
-                    background: darkblue;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    font-weight: bold;
-                }
-                .login-panel {
-                    position: fixed;
-                    right: -300px;
-                    top: 0;
-                    width: 300px;
-                    height: 100%;
-                    background: #e8f0fe;
-                    box-shadow: -2px 0 5px rgba(0,0,0,0.2);
-                    transition: right 0.3s ease-in-out;
-                    padding: 20px;
-                }
-                .login-panel.active {
-                    right: 0;
-                }
-                .login-close-btn {
-                    cursor: pointer;
-                    background: darkred;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    float: right;
-                }
-                .login-form-group {
-                    margin-bottom: 10px;
-                }
-                .login-form-group label {
-                    display: block;
-                }
-                .login-form-group input {
-                    width: 100%;
-                    padding: 5px;
-                }
-                .login-submit-btn {
-                    padding: 10px;
-                    background: darkgreen;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                }
-                input {
-				  width: 100%;
-				  padding: 12px 20px;
-				  margin: 8px 0;
-				  box-sizing: border-box;
-				  border: 3px solid #ccc;
-				  -webkit-transition: 0.5s;
-				  transition: 0.5s;
-				  outline: none;
-				}
-				input:focus {
-				  border: 3px solid #555;
-				}
-                .panel {
-                    position: fixed;
-                    right: -300px;
-                    top: 0;
-                    width: 300px;
-                    height: 100%;
-                    background: #e8f0fe;
-                    box-shadow: -2px 0 5px rgba(0,0,0,0.2);
-                    transition: right 0.3s ease-in-out;
-                    padding: 20px;
-                }
-                .panel.active {
-                    right: 0;
-                }
-                .close-btn {
-                    cursor: pointer;
-                    background: red;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    float: right;
-                }
-                .form-group {
-                    margin-bottom: 10px;
-                }
-                .form-group label {
-                    display: block;
-                }
-                .form-group input {
-                    width: 100%;
-                    padding: 5px;
-                }
-                .signup-btn {
-                    padding: 10px;
-                    background: darkblue;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                }
-                .submit-btn {
-                    padding: 10px;
-                    background: blue;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                }
-            `}</style>
 			</div>
-
-			<button
-				className="signup-btn font-bold mb-8"
-				onClick={() => setIsSignupOpen(true)}
-			>
-				Signup
-			</button>
 
 			<h1 className="text-3xl font-bold mb-8 text-gray-800">
 				BitSlow Transactions
 			</h1>
-
+			<div>
+				<select onChange={handlePageSizeChange} value={page.size}>
+					<option value="15">15</option>
+					<option value="30">30</option>
+					<option value="50">50</option>
+				</select>
+			</div>
+			<div className="pagination-controls">
+				{Array.from({ length: (filteredTransactions.length - 1) / page.size + 1 }, (_, index) => (
+					<button
+						key={index + 1}
+						onClick={() => handlePageChange(index)}
+						className={`page-button ${page.currentPage === index + 1 ? "active" : ""}`}
+					>
+						{index + 1}
+					</button>
+				))}
+			</div>
+			<input type="date" onInput={handleStartDateChange}></input>
+			<input type="date" onInput={handleEndDateChange}></input>
+			<input type="number" onInput={handleStartPriceChange}/>
+			<input type="number" onInput={handleEndPriceChange}/>
+			<input type="text" onInput={handleBuyerNameChange}/>
+			<input type="text" onInput={handleSellerNameChange}/>
 			{transactions.length === 0 ? (
 				<p className="text-gray-500">No transactions found</p>
 			) : (
@@ -368,7 +353,7 @@ export function App() {
 							</tr>
 						</thead>
 						<tbody>
-							{transactions.map((transaction, index) => (
+							{pagedTransactions.map((transaction, index) => (
 								<tr
 									key={transaction.id}
 									className={`hover:bg-gray-50 transition-colors ${index === transactions.length - 1 ? "" : "border-b border-gray-200"}`}
@@ -406,7 +391,195 @@ export function App() {
 							))}
 						</tbody>
 					</table>
+					<style>{`
+						body {
+							font-family: Arial, sans-serif;
+						}
+						
+						.buttons-container {
+							position: fixed;
+							top: 20px;
+							left: 50%;
+							transform: translateX(-50%);
+							display: flex;
+							justify-content: space-between;
+							width: 250px;
+							z-index: 9999;
+						}
+						
+						.login-btn, .signup-btn {
+							padding: 10px 15px;
+							background: darkblue;
+							color: white;
+							border: none;
+							cursor: pointer;
+							font-weight: bold;
+							width: 100%;
+							text-align: center;
+						}
+						
+						.login-panel {
+							position: fixed;
+							right: -300px;
+							top: 0;
+							width: 300px;
+							height: 100%;
+							background: #e8f0fe;
+							box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
+							transition: right 0.3s ease-in-out;
+							padding: 20px;
+						}
+						
+						.login-panel.active {
+							right: 0;
+						}
+						
+						.login-close-btn {
+							cursor: pointer;
+							background: darkred;
+							color: white;
+							border: none;
+							padding: 5px 10px;
+							float: right;
+						}
+						
+						.login-form-group {
+							margin-bottom: 10px;
+						}
+						
+						.login-form-group label {
+							display: block;
+						}
+						
+						.login-form-group input {
+							width: 100%;
+							padding: 5px;
+						}
+						
+						.login-submit-btn {
+							padding: 10px;
+							background: darkgreen;
+							color: white;
+							border: none;
+							cursor: pointer;
+						}
+						
+						input {
+							width: 100%;
+							padding: 12px 20px;
+							margin: 8px 0;
+							box-sizing: border-box;
+							border: 3px solid #ccc;
+							-webkit-transition: 0.5s;
+							transition: 0.5s;
+							outline: none;
+						}
+						
+						input:focus {
+							border: 3px solid #555;
+						}
+						
+						.panel {
+							position: fixed;
+							right: -300px;
+							top: 0;
+							width: 300px;
+							height: 100%;
+							background: #e8f0fe;
+							box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
+							transition: right 0.3s ease-in-out;
+							padding: 20px;
+						}
+						
+						.panel.active {
+							right: 0;
+						}
+						
+						.close-btn {
+							cursor: pointer;
+							background: red;
+							color: white;
+							border: none;
+							padding: 5px 10px;
+							float: right;
+						}
+						
+						.form-group {
+							margin-bottom: 10px;
+						}
+						
+						.form-group label {
+							display: block;
+						}
+						
+						.form-group input {
+							width: 100%;
+							padding: 5px;
+						}
+						
+						.signup-btn {
+							padding: 10px;
+							background: darkblue;
+							color: white;
+							border: none;
+							cursor: pointer;
+						}
+						
+						.submit-btn {
+							padding: 10px;
+							background: blue;
+							color: white;
+							border: none;
+							cursor: pointer;
+						}
+						
+						.pagination-controls {
+							display: flex;
+							gap: 8px;
+							margin-top: 16px;
+						}
+						
+						.page-button {
+							padding: 8px 16px;
+							background-color: #007bff;
+							color: white;
+							border: 1px solid #007bff;
+							border-radius: 4px;
+							cursor: pointer;
+							font-size: 14px;
+							transition: background-color 0.3s, transform 0.2s;
+						}
+						
+						.page-button:hover {
+							background-color: #0056b3;
+							transform: scale(1.05);
+						}
+						
+						.page-button.active {
+							background-color: #0056b3;
+							border-color: #0056b3;
+						}
+						
+						.page-button:focus {
+							outline: none;
+							box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+						}
+						
+						select {
+							padding: 8px;
+							font-size: 14px;
+							border: 1px solid #ccc;
+							border-radius: 4px;
+							background-color: #f8f9fa;
+						}
+						
+						select:focus {
+							border-color: #007bff;
+							outline: none;
+						}
+					`}</style>
 				</div>
+
 			)}
 		</div>
 	);
@@ -423,9 +596,9 @@ function getCookie(name: string): string | null {
 	return null;
 }
 
-function setCookie(name: string, value: string, days: number = 7, path: string = '/'): void {
+function setCookie(name: string, value: string, hours: number = 1, path: string = '/'): void {
 	const expires = new Date();
-	expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+	expires.setTime(expires.getTime() + hours * 60 * 60 * 1000);
 	document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; path=${path}`;
 }
 
